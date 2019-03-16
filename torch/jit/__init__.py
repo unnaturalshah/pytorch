@@ -1489,6 +1489,10 @@ _builtin_table = None
 _modules_containing_builtins = (torch, torch._C._nn)
 
 
+def save_ivalue(value, filename):
+    raise RuntimeError("I can't do that")
+
+
 def _unwrap_optional(x):
     assert x is not None, "Unwrapping null optional"
     return x
@@ -1527,6 +1531,7 @@ def _get_builtin_table():
     _builtin_table[id(torch.nn.functional.upsample_bilinear)] = "aten::__upsample_bilinear"
     _builtin_table[id(torch.nn.functional.assert_int_or_pair)] = "aten::_assert_int_or_pair"
     _builtin_table[id(torch.nn.utils.rnn.get_packed_sequence)] = "aten::_pack_sequence"
+    _builtin_table[id(save_ivalue)] = "aten::save"
 
     return _builtin_table
 
@@ -1567,6 +1572,38 @@ class Attribute(object):
         self.value = value
         self.type = the_type
 
+
+class _TensorID(object):
+    def __setstate__(self, id):
+        self.id = id
+
+
+class _IntList(object):
+    def __setstate__(self, data):
+        self.data = data
+
+
+class _LiteralTensor(object):
+    def __setstate__(self, data):
+        buffer = data[0].encode('utf-8')
+        sizes = data[1].data
+
+        num_elements = functools.reduce(lambda size, acc: size * acc, sizes)
+        storage = torch.Storage.from_buffer(buffer=buffer, byte_order="little", count=num_elements, offset=0)
+        self.tensor = torch.tensor(storage.tolist()).view(sizes)
+
+
+class JitUnpickler(pickle.Unpickler):
+    def find_class(self, module, name):
+        if not module == '__main__':
+            return None
+
+        if name == 'TensorID':
+            return _TensorID
+        elif name == 'IntList':
+            return _IntList
+        elif name == 'LiteralTensor':
+            return _LiteralTensor
 
 if not torch._C._jit_init():
     raise RuntimeError("JIT initialization failed")

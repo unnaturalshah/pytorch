@@ -840,6 +840,7 @@ bool Node::hasSideEffects() const {
     case prim::RaiseException:
     case prim::SetAttr:
     case aten::warn:
+    case aten::save:
       return true;
   }
   return false;

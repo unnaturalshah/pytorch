@@ -83,7 +83,14 @@ enum class OpCode : char {
   FRAME = '\x95'
 };
 
-enum PicklerClass : uint8_t { TENSOR = 0, INTLIST = 1 };
+enum PicklerClass : uint8_t {
+  // A reference to the tensor table
+  TENSOR = 0,
+  // List[int]
+  INTLIST = 1,
+  // A tensor that is stored entirely in the pickle file
+  LITERAL_TENSOR = 2
+};
 
 using ::c10::IValue;
 
@@ -91,7 +98,7 @@ class Pickler {
   TH_DISALLOW_COPY_AND_ASSIGN(Pickler);
 
  public:
-  Pickler(std::vector<at::Tensor>* tensor_table)
+  Pickler(std::vector<at::Tensor>* tensor_table = nullptr)
       : tensor_table_(tensor_table) {}
 
   const std::vector<char>& stack();
@@ -113,6 +120,9 @@ class Pickler {
   void pushDict(const IValue& ivalue);
   void pushClass(PicklerClass cls);
   const void* getPointer(const IValue& ivalue);
+  void pushLiteralTensor(const IValue& ivalue);
+  void pushTensorReference(const IValue& ivalue);
+
 
   void pushUint8(uint8_t value);
   void pushOpCode(OpCode value);
@@ -126,7 +136,8 @@ class Pickler {
   // BINPUT opcodes) to enable shared references
   std::unordered_map<const void*, uint32_t> memo_;
 
-  // External table of tensors to serialize
+  // External table of tensors to serialize. If this is missing, then tensors
+  // are serialized directly into the pickle
   std::vector<at::Tensor>* tensor_table_;
 
   // TODO: only use this if necessary (add a pass to find all shared ivalues,

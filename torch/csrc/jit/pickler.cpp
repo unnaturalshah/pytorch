@@ -10,6 +10,8 @@ PicklerClass getClass(const std::string& str) {
     return PicklerClass::TENSOR;
   } else if (str == "IntList") {
     return PicklerClass::INTLIST;
+  } else if (str == "LiteralTensor") {
+    return PicklerClass::LITERAL_TENSOR;
   }
   AT_ERROR("Unknown class name for unpickler: ", str);
 }
@@ -17,11 +19,14 @@ PicklerClass getClass(const std::string& str) {
 const std::string& getClassName(PicklerClass cls) {
   static const std::string tensor_class("TensorID\n");
   static const std::string intlist_class("IntList\n");
+  static const std::string tensor_literal_class("LiteralTensor\n");
   switch (cls) {
     case PicklerClass::TENSOR:
       return tensor_class;
     case PicklerClass::INTLIST:
       return intlist_class;
+    case PicklerClass::LITERAL_TENSOR:
+      return tensor_literal_class;
     default:
       AT_ERROR("Unknown class for pickler");
   }
@@ -157,13 +162,37 @@ void Pickler::pushClass(PicklerClass cls) {
 }
 
 void Pickler::pushTensor(const IValue& ivalue) {
-  pushClass(PicklerClass::TENSOR);
+  if (tensor_table_ == nullptr) {
+    pushLiteralTensor(ivalue);
+  } else {
+    pushTensorReference(ivalue);
+  }
+}
 
+void Pickler::pushLiteralTensor(const IValue& ivalue) {
+  pushClass(PicklerClass::LITERAL_TENSOR);
+
+  auto tensor = ivalue.toTensor();
+  uint64_t record_size =
+      tensor.element_size() * tensor.storage().size();
+
+  IValue num_elements = tensor.sizes();
+  // TODO: making IValues does a useless copy of the storage
+  IValue storage_bytes =
+      std::string((char*)tensor.storage().data(), record_size);
+  IValue list = c10::ivalue::GenericList::create({storage_bytes, num_elements});
+  addIValue(list);
+
+  pushOpCode(OpCode::BUILD);
+}
+
+
+void Pickler::pushTensorReference(const IValue& ivalue) {
+  pushClass(PicklerClass::TENSOR);
   tensor_table_->push_back(ivalue.toTensor());
   auto tensor_id = tensor_table_->size() - 1;
   pushOpCode(OpCode::BININT);
   pushUint32(tensor_id);
-
   pushOpCode(OpCode::BUILD);
 }
 

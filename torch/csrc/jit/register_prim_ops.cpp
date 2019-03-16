@@ -8,6 +8,7 @@
 #include <torch/csrc/jit/fuser/interface.h>
 #include <torch/csrc/jit/graph_executor.h>
 #include <torch/csrc/jit/ir.h>
+#include <torch/csrc/jit/pickler.h>
 #include <torch/csrc/jit/operator.h>
 #include <torch/csrc/jit/script/jit_exception.h>
 
@@ -24,6 +25,7 @@
 #include <memory>
 #include <mutex>
 #include <ostream>
+#include <fstream>
 #include <stdexcept>
 #include <string>
 #include <typeinfo>
@@ -403,6 +405,24 @@ RegisterOperators reg(
              stack.emplace_back(at::Tensor());
              return 0;
            };
+         }),
+     Operator(
+         "aten::save(t item, str filename) -> ()",
+         [](Stack& stack) {
+           auto filename = pop(stack).toStringRef();
+           auto value = pop(stack);
+
+           // Pickle the tensor
+           Pickler p;
+           p.start();
+           p.addIValue(value);
+           p.finish();
+
+           // Write file
+           std::fstream output(filename, std::ios::out | std::ios::binary);
+           output.write(p.stack().data(), p.stack().size());
+           output.close();
+           return 0;
          }),
      Operator(
          prim::Print,
