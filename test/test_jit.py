@@ -1341,6 +1341,27 @@ class TestJit(JitTestCase):
             m = self.createScriptModuleFromGraph(trace)
             self.assertEqual(outputs, m(*inputs))
 
+    @unittest.skipIf(not RUN_CUDA, "test_dropout_cuda require CUDA")
+    def test_dropout_cuda(self):
+        # Dropout AD is dispatched to _fused_dropout in CUDA case,
+        # which is not included in TestJitGeneratedFunctional
+        x = torch.ones(4, 4).cuda().requires_grad_()
+
+        @torch.jit.script
+        def func(x):
+            return torch.nn.functional.dropout(x)
+
+        with freeze_rng_state():
+            out_ref = torch.nn.functional.dropout(x)
+            grad_ref = torch.autograd.grad(out_ref.sum(), x)
+
+        with freeze_rng_state():
+            out = func(x)
+            grad = torch.autograd.grad(out.sum(), x)
+
+        self.assertEqual(out, out_ref)
+        self.assertEqual(grad, grad_ref)
+
     def test_conv(self):
         x = torch.ones(20, 16, 50, 40)
         trace, outputs, inputs = torch.jit.get_trace_graph(nn.Conv2d(16, 13, 3, bias=False), x, return_inputs=True)
@@ -10778,7 +10799,7 @@ a")
         imported_m = self.getExportImportCopy(m)
         self.assertEqual(m(), imported_m())
 
-    @unittest.skipIf(IS_WINDOWS, "TemporaryFileName support on Windows")
+    @unittest.skipIf(IS_WINDOWS or IS_SANDCASTLE, "NYI: TemporaryFileName support for Windows or Sandcastle")
     def test_attribute_unpickling(self):
         import zipfile
 
@@ -10819,7 +10840,6 @@ a")
             M().save(fname)
             archive_name = os.path.basename(os.path.normpath(fname))
             archive = zipfile.ZipFile(fname, 'r')
-
             pickled_data = archive.read(os.path.join(archive_name, 'attributes.pkl'))
             JitUnpickler(io.BytesIO(pickled_data)).load()
 

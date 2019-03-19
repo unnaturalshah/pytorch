@@ -123,7 +123,6 @@ class Pickler {
   void pushLiteralTensor(const IValue& ivalue);
   void pushTensorReference(const IValue& ivalue);
 
-
   void pushUint8(uint8_t value);
   void pushOpCode(OpCode value);
   void pushUint32(uint32_t value);
