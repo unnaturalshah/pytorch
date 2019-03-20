@@ -10888,7 +10888,7 @@ a")
                 __constants__ = ['fname']
 
                 def __init__(self):
-                    super().__init__()
+                    super(M, self).__init__()
                     self.fname = fname
                     self.tensor = torch.nn.Parameter(torch.ones(2, 2))
 
