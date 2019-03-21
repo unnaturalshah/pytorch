@@ -1490,7 +1490,7 @@ _modules_containing_builtins = (torch, torch._C._nn)
 
 
 def save_ivalue(value, filename):
-    raise RuntimeError("I can't do that")
+    raise RuntimeError("Saving IValues from Python is not supported")
 
 
 def _unwrap_optional(x):
