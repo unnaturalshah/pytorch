@@ -421,7 +421,6 @@ RegisterOperators reg(
            // Write file
            std::fstream output(filename, std::ios::out | std::ios::binary);
            output.write(p.stack().data(), p.stack().size());
-           output.close();
            return 0;
          }),
      Operator(
