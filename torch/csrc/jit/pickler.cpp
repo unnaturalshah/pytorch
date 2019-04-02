@@ -11,11 +11,12 @@ static std::unordered_map<std::string, PicklerClass> name_to_class{
   {"LiteralTensor", PicklerClass::LITERAL_TENSOR},
 };
 
-static std::unordered_map<PicklerClass, std::string> class_to_name{
-  {PicklerClass::TENSOR, "TensorID\n"},
-  {PicklerClass::INTLIST, "IntList\n"},
-  {PicklerClass::LITERAL_TENSOR, "LiteralTensor\n"},
-};
+static std::unordered_map<PicklerClass, std::string, std::hash<uint8_t>>
+    class_to_name{
+        {PicklerClass::TENSOR, "TensorID\n"},
+        {PicklerClass::INTLIST, "IntList\n"},
+        {PicklerClass::LITERAL_TENSOR, "LiteralTensor\n"},
+    };
 
 static std::string module_name = "__main__\n";
 
@@ -138,20 +139,22 @@ void Pickler::pushString(const std::string& string) {
   stack_.insert(stack_.end(), string.begin(), string.end());
 }
 
-void Pickler::pushClass(PicklerClass cls) {
-  const auto& name = class_to_name.at(cls);
-  // Write it to the tensor table
+void Pickler::pushGlobal(const std::string& name) {
   auto memo_entry = memo_.find(&name);
   if (memo_entry == memo_.end()) {
     push<OpCode>(OpCode::GLOBAL);
     // Module name + "\n"
-    pushString(module_name);
+    // pushString(module_name);
     // Class name + "\n"
     pushString(name);
     pushMemoization((void*)&name);
   } else {
     pushBinGet(memo_entry->second);
   }
+}
+
+void Pickler::pushClass(PicklerClass cls) {
+  pushGlobal(module_name + class_to_name.at(cls));
 
   push<OpCode>(OpCode::EMPTY_TUPLE);
   push<OpCode>(OpCode::NEWOBJ);
@@ -166,20 +169,52 @@ void Pickler::pushTensor(const IValue& ivalue) {
 }
 
 void Pickler::pushLiteralTensor(const IValue& ivalue) {
-  pushClass(PicklerClass::LITERAL_TENSOR);
-
+  // pushClass(PicklerClass::LITERAL_TENSOR);
   auto tensor = ivalue.toTensor();
-  uint64_t record_size =
-      tensor.element_size() * tensor.storage().size();
 
-  IValue num_elements = tensor.sizes();
-  // TODO: making IValues does a useless copy of the storage
-  IValue storage_bytes =
-      std::string((char*)tensor.storage().data(), record_size);
-  IValue list = c10::ivalue::GenericList::create({storage_bytes, num_elements});
-  addIValue(list);
+  pushGlobal("torch._utils\n_rebuild_tensor_v2\n");
+  push<OpCode>(OpCode::MARK);
 
-  push<OpCode>(OpCode::BUILD);
+  push<OpCode>(OpCode::MARK);
+  pushMemoizedString(std::string("storage"));
+  // TODO: determine correct type
+  pushGlobal("torch\nLongStorage\n");
+  // TODO: this is a key for re-loading (not necessary?)
+  pushMemoizedString(std::string(""));
+  // Tensor location
+  pushMemoizedString(std::string("cpu"));
+  // dtype ID
+  pushInt(static_cast<int8_t>(tensor.scalar_type()));
+  push<OpCode>(OpCode::NONE);
+  push<OpCode>(OpCode::TUPLE);
+  push<OpCode>(OpCode::BINPERSID);
+
+  pushInt(0);
+  push<OpCode>(OpCode::EMPTY_TUPLE);
+  push<OpCode>(OpCode::EMPTY_TUPLE);
+  addIValue(tensor.requires_grad());
+  pushGlobal("collections\nOrderedDict\n");
+  push<OpCode>(OpCode::EMPTY_TUPLE);
+  push<OpCode>(OpCode::REDUCE);
+  push<OpCode>(OpCode::TUPLE);
+  push<OpCode>(OpCode::REDUCE);
+
+
+  //
+  // IValue storage = c10::ivalue::Tuple::create({"storage", "torch "});
+  //
+  // auto tensor = ivalue.toTensor();
+  // uint64_t record_size =
+  //     tensor.element_size() * tensor.storage().size();
+  //
+  // IValue num_elements = tensor.sizes();
+  // // TODO: making IValues does a useless copy of the storage
+  // IValue storage_bytes =
+  //     std::string((char*)tensor.storage().data(), record_size);
+  // IValue list = c10::ivalue::GenericList::create({storage_bytes, num_elements});
+  // addIValue(list);
+  //
+  // push<OpCode>(OpCode::BUILD);
 }
 
 

@@ -123,6 +123,7 @@ class Pickler {
   const void* getPointer(const IValue& ivalue);
   void pushLiteralTensor(const IValue& ivalue);
   void pushTensorReference(const IValue& ivalue);
+  void pushGlobal(const std::string& name);
 
   // These convert values to bytes and add them to the stack (NB: since T is to
   // the left of a '::', its type cannot be deduced by the compiler so one must

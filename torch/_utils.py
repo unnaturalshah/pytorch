@@ -126,12 +126,20 @@ def _get_async_or_non_blocking(function_name, non_blocking, kwargs):
 
 def _rebuild_tensor(storage, storage_offset, size, stride):
     class_name = storage.__class__.__name__.replace('Storage', 'Tensor')
+    print("rebuild storage", storage)
+    print("rebuild storage_offset", storage_offset)
+    print("rebuild size", size)
     module = importlib.import_module(storage.__module__)
     tensor_class = getattr(module, class_name)
     return tensor_class().set_(storage, storage_offset, size, stride)
 
 
 def _rebuild_tensor_v2(storage, storage_offset, size, stride, requires_grad, backward_hooks):
+    print("storage", storage)
+    print("storage_offset", storage_offset)
+    print("size", size)
+    print("stride", stride)
+    print("requires_grad", requires_grad)
     tensor = _rebuild_tensor(storage, storage_offset, size, stride)
     tensor.requires_grad = requires_grad
     # NB: This line exists only for backwards compatibility; the
