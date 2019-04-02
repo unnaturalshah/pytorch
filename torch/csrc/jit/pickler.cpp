@@ -5,37 +5,19 @@ namespace jit {
 
 using ::c10::IValue;
 
-PicklerClass getClass(const std::string& str) {
-  if (str == "TensorID") {
-    return PicklerClass::TENSOR;
-  } else if (str == "IntList") {
-    return PicklerClass::INTLIST;
-  } else if (str == "LiteralTensor") {
-    return PicklerClass::LITERAL_TENSOR;
-  }
-  AT_ERROR("Unknown class name for unpickler: ", str);
-}
+static std::unordered_map<std::string, PicklerClass> name_to_class{
+  {"TensorID", PicklerClass::TENSOR},
+  {"IntList", PicklerClass::INTLIST},
+  {"LiteralTensor", PicklerClass::LITERAL_TENSOR},
+};
 
-const std::string& getClassName(PicklerClass cls) {
-  static const std::string tensor_class("TensorID\n");
-  static const std::string intlist_class("IntList\n");
-  static const std::string tensor_literal_class("LiteralTensor\n");
-  switch (cls) {
-    case PicklerClass::TENSOR:
-      return tensor_class;
-    case PicklerClass::INTLIST:
-      return intlist_class;
-    case PicklerClass::LITERAL_TENSOR:
-      return tensor_literal_class;
-    default:
-      AT_ERROR("Unknown class for pickler");
-  }
-}
+static std::unordered_map<PicklerClass, std::string> class_to_name{
+  {PicklerClass::TENSOR, "TensorID\n"},
+  {PicklerClass::INTLIST, "IntList\n"},
+  {PicklerClass::LITERAL_TENSOR, "LiteralTensor\n"},
+};
 
-const std::string& getModuleName() {
-  static const std::string module_name("__main__\n");
-  return module_name;
-}
+static std::string module_name = "__main__\n";
 
 const std::vector<char>& Pickler::stack() {
   return stack_;
@@ -143,13 +125,13 @@ void Pickler::pushString(const std::string& string) {
 }
 
 void Pickler::pushClass(PicklerClass cls) {
-  const auto& name = getClassName(cls);
+  const auto& name = class_to_name.at(cls);
   // Write it to the tensor table
   auto memo_entry = memo_.find(&name);
   if (memo_entry == memo_.end()) {
     pushOpCode(OpCode::GLOBAL);
     // Module name + "\n"
-    pushString(getModuleName());
+    pushString(module_name);
     // Class name + "\n"
     pushString(name);
     pushMemoization((void*)&name);
@@ -441,7 +423,7 @@ OpCode Unpickler::readInstruction() {
     case OpCode::GLOBAL: {
       AT_ASSERT(readString() == "__main__");
       // Push class name to stack
-      stack_.emplace_back(static_cast<uint8_t>(getClass(readString())));
+      stack_.emplace_back(static_cast<uint8_t>(name_to_class.at(readString())));
     } break;
     case OpCode::NEWOBJ: {
       // pop empty tuple

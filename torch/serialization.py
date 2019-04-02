@@ -289,11 +289,13 @@ def _save(obj, f, pickle_module, pickle_protocol):
         ),
     )
 
-    pickle_module.dump(MAGIC_NUMBER, f, protocol=pickle_protocol)
-    pickle_module.dump(PROTOCOL_VERSION, f, protocol=pickle_protocol)
-    pickle_module.dump(sys_info, f, protocol=pickle_protocol)
+    # pickle_module.dump(MAGIC_NUMBER, f, protocol=pickle_protocol)
+    # pickle_module.dump(PROTOCOL_VERSION, f, protocol=pickle_protocol)
+    # pickle_module.dump(sys_info, f, protocol=pickle_protocol)
+
     pickler = pickle_module.Pickler(f, protocol=pickle_protocol)
     pickler.persistent_id = persistent_id
+    print(obj)
     pickler.dump(obj)
 
     serialized_storage_keys = sorted(serialized_storages.keys())
