@@ -575,5 +575,6 @@ inline py::object invokeOperatorFromPython(
 
   return createPyObjectForStack(std::move(stack));
 }
+
 } // namespace jit
 } // namespace torch
