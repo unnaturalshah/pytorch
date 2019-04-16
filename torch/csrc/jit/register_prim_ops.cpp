@@ -1625,6 +1625,7 @@ RegisterOperators reg2({
         "aten::len(Tensor t) -> int",
         [](Stack& stack) {
           at::Tensor t = pop(stack).toTensor();
+          // std::cout << "Tensor length\n";
           if (t.dim() == 0) {
             AT_ERROR("len() of a 0-d tensor");
           }

@@ -1,17 +1,18 @@
 #include <torch/csrc/jit/pickler.h>
+#include <string>
 
 namespace torch {
 namespace jit {
 
 using ::c10::IValue;
 
-static std::unordered_map<std::string, PicklerClass> name_to_class{
+const static std::unordered_map<std::string, PicklerClass> name_to_class{
   {"TensorID", PicklerClass::TENSOR},
   {"IntList", PicklerClass::INTLIST},
   {"LiteralTensor", PicklerClass::LITERAL_TENSOR},
 };
 
-static std::unordered_map<PicklerClass, std::string, std::hash<uint8_t>>
+const static std::unordered_map<PicklerClass, std::string, std::hash<uint8_t>>
     class_to_name{
         {PicklerClass::TENSOR, "TensorID\n"},
         {PicklerClass::INTLIST, "IntList\n"},
@@ -37,6 +38,33 @@ void Pickler::start() {
 void Pickler::finish() {
   push<OpCode>(OpCode::APPENDS);
   push<OpCode>(OpCode::STOP);
+
+  // Add the binary data for all the tensors to be included in the same binary
+  // TODO: The pickler should be refactored to stream out to a file directly
+  // instead of staging in the stack_ array
+
+  // Insert storage keys
+  if (literal_tensors_.size() > 0) {
+    Pickler p;
+    p.start();
+    auto storage_keys = IValue(c10::ivalue::GenericList::create({}));
+    size_t index = 0;
+    for (auto tensor : literal_tensors_) {
+      storage_keys.toGenericList()->elements().push_back(std::to_string(index));
+      index++;
+    }
+    std::cout << "Adding keys\n" << storage_keys << "\n";
+    p.addIValue(storage_keys);
+    p.finish();
+    stack_.insert(
+        stack_.end(), p.stack().data(), p.stack().data() + p.stack().size());
+
+    for (auto tensor : literal_tensors_) {
+      uint64_t record_size = tensor.element_size() * tensor.storage().size();
+      auto storage_ptr = reinterpret_cast<const char*>(tensor.storage().data());
+      stack_.insert(stack_.end(), storage_ptr, storage_ptr + record_size);
+    }
+  }
 }
 
 void Pickler::addIValue(const IValue& ivalue) {
@@ -139,18 +167,10 @@ void Pickler::pushString(const std::string& string) {
   stack_.insert(stack_.end(), string.begin(), string.end());
 }
 
-// void Pickler::pushGlobal(const std::string& name) {
-  // auto memo_entry = memo_.find(&name);
-  // if (memo_entry == memo_.end()) {
-void Pickler::pushClass(PicklerClass cls) {
-  const auto& name = getClassName(cls);
-  // Write it to the tensor table
+void Pickler::pushGlobal(const std::string& name) {
   auto memo_entry = memo_map_.find(&name);
   if (memo_entry == memo_map_.end()) {
     push<OpCode>(OpCode::GLOBAL);
-    // Module name + "\n"
-    // pushString(module_name);
-    // Class name + "\n"
     pushString(name);
     pushMemoization((void*)&name);
   } else {
@@ -185,7 +205,7 @@ void Pickler::pushLiteralTensor(const IValue& ivalue) {
   // TODO: determine correct type
   pushGlobal("torch\nLongStorage\n");
   // TODO: this is a key for re-loading (not necessary?)
-  pushMemoizedString(std::string(""));
+  pushMemoizedString(std::to_string(literal_tensors_.size()));
   // Tensor location
   pushMemoizedString(std::string("cpu"));
   // dtype ID
@@ -194,7 +214,7 @@ void Pickler::pushLiteralTensor(const IValue& ivalue) {
   push<OpCode>(OpCode::TUPLE);
   push<OpCode>(OpCode::BINPERSID);
 
-  pushInt(0);
+  pushInt(5);
   push<OpCode>(OpCode::EMPTY_TUPLE);
   push<OpCode>(OpCode::EMPTY_TUPLE);
   addIValue(tensor.requires_grad());
@@ -203,6 +223,8 @@ void Pickler::pushLiteralTensor(const IValue& ivalue) {
   push<OpCode>(OpCode::REDUCE);
   push<OpCode>(OpCode::TUPLE);
   push<OpCode>(OpCode::REDUCE);
+
+  literal_tensors_.push_back(ivalue.toTensor());
 
 
   //

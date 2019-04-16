@@ -1553,38 +1553,5 @@ def annotate(the_type, the_value):
 
 Attribute = collections.namedtuple('Attribute', ['value', 'type'])
 
-
-class _TensorID(object):
-    def __setstate__(self, id):
-        self.id = id
-
-
-class _IntList(object):
-    def __setstate__(self, data):
-        self.data = data
-
-
-class _LiteralTensor(object):
-    def __setstate__(self, data):
-        buffer = data[0].encode('utf-8')
-        sizes = data[1].data
-
-        num_elements = functools.reduce(lambda size, acc: size * acc, sizes)
-        storage = torch.Storage.from_buffer(buffer=buffer, byte_order="little", count=num_elements, offset=0)
-        self.tensor = torch.tensor(storage.tolist()).view(sizes)
-
-
-class JitUnpickler(pickle.Unpickler):
-    def find_class(self, module, name):
-        if not module == '__main__':
-            return None
-
-        if name == 'TensorID':
-            return _TensorID
-        elif name == 'IntList':
-            return _IntList
-        elif name == 'LiteralTensor':
-            return _LiteralTensor
-
 if not torch._C._jit_init():
     raise RuntimeError("JIT initialization failed")

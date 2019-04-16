@@ -107,23 +107,25 @@ class Pickler {
   void addIValue(const IValue& ivalue);
 
  private:
-  void pushBinGet(uint32_t memo_id);
-  void pushMemoizedString(const IValue& ivalue);
-  void pushString(const std::string& string);
-  void pushTensor(const IValue& ivalue);
-  void pushDouble(const IValue& ivalue);
-  void pushMemoization(const void* item);
-  void pushMemoization(const IValue& ivalue);
-  void pushList(const IValue& ivalue);
-  void pushIntList(const IValue& ivalue);
-  void pushTuple(const IValue& ivalue);
   void pushDict(const IValue& ivalue);
-  void pushClass(PicklerClass cls);
+  void pushDouble(const IValue& ivalue);
   void pushInt(const IValue& ivalue);
-  const void* getPointer(const IValue& ivalue);
+  void pushIntList(const IValue& ivalue);
+  void pushList(const IValue& ivalue);
   void pushLiteralTensor(const IValue& ivalue);
+  void pushMemoization(const IValue& ivalue);
+  void pushMemoizedString(const IValue& ivalue);
+  void pushTensor(const IValue& ivalue);
   void pushTensorReference(const IValue& ivalue);
+  void pushTuple(const IValue& ivalue);
+
+  void pushBinGet(uint32_t memo_id);
+  void pushClass(PicklerClass cls);
   void pushGlobal(const std::string& name);
+  void pushMemoization(const void* item);
+  void pushString(const std::string& string);
+
+  const void* getPointer(const IValue& ivalue);
 
   // These convert values to bytes and add them to the stack (NB: since T is to
   // the left of a '::', its type cannot be deduced by the compiler so one must
@@ -145,6 +147,9 @@ class Pickler {
   // External table of tensors to serialize. If this is missing, then tensors
   // are serialized directly into the pickle
   std::vector<at::Tensor>* tensor_table_;
+
+  // List of tensors to serialize in the same binary as the pickle data
+  std::vector<at::Tensor> literal_tensors_;
 
   // TODO: only use this if necessary (add a pass to find all shared ivalues,
   // and only memoize those)
@@ -181,11 +186,11 @@ class Unpickler {
   }
 
   double readFloat();
-  void run();
   OpCode readInstruction();
-  std::string readString();
   OpCode readOpCode();
+  std::string readString();
   void readList();
+  void run();
 
   std::vector<IValue> stack_;
   std::vector<IValue> memo_table_;

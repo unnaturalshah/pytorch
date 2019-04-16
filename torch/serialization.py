@@ -297,8 +297,12 @@ def _save(obj, f, pickle_module, pickle_protocol):
     pickler.persistent_id = persistent_id
     print(obj)
     pickler.dump(obj)
-
+    print("KEYS")
     serialized_storage_keys = sorted(serialized_storages.keys())
+    print(serialized_storages)
+    for i in serialized_storage_keys:
+        print(type(i))
+    print("end")
     pickle_module.dump(serialized_storage_keys, f, protocol=pickle_protocol)
     f.flush()
     for key in serialized_storage_keys:
@@ -562,20 +566,35 @@ def _load(f, map_location, pickle_module, **pickle_load_args):
                 raise RuntimeError("{} is a zip archive (did you mean to use torch.jit.load()?)".format(f.name))
             # if not a tarfile, reset file offset and proceed
             f.seek(0)
+    #
+    # magic_number = pickle_module.load(f, **pickle_load_args)
+    # if magic_number != MAGIC_NUMBER:
+    #     raise RuntimeError("Invalid magic number; corrupt file?")
+    # protocol_version = pickle_module.load(f, **pickle_load_args)
+    # if protocol_version != PROTOCOL_VERSION:
+    #     raise RuntimeError("Invalid protocol version: %s" % protocol_version)
 
-    magic_number = pickle_module.load(f, **pickle_load_args)
-    if magic_number != MAGIC_NUMBER:
-        raise RuntimeError("Invalid magic number; corrupt file?")
-    protocol_version = pickle_module.load(f, **pickle_load_args)
-    if protocol_version != PROTOCOL_VERSION:
-        raise RuntimeError("Invalid protocol version: %s" % protocol_version)
-
-    _sys_info = pickle_module.load(f, **pickle_load_args)
+    # _sys_info = pickle_module.load(f, **pickle_load_args)
+    print("1:", f.tell())
     unpickler = pickle_module.Unpickler(f, **pickle_load_args)
     unpickler.persistent_load = persistent_load
     result = unpickler.load()
 
+    print("reuslt:")
+    print(result)
+    import pickletools
+    print("Disasing")
+
+    print("2:", f.tell())
+    # print(pickletools.dis(f))
+    print("3:", f.tell())
+
+    print("Loading keys")
     deserialized_storage_keys = pickle_module.load(f, **pickle_load_args)
+    print("4:", f.tell())
+
+    print("Loaded keys")
+    print(deserialized_storage_keys)
 
     offset = f.tell() if f_should_read_directly else None
     for key in deserialized_storage_keys:
