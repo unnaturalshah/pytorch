@@ -527,7 +527,6 @@ def _load(f, map_location, pickle_module, **pickle_load_args):
     def persistent_load(saved_id):
         assert isinstance(saved_id, tuple)
         typename = maybe_decode_ascii(saved_id[0])
-        print("LOADING", saved_id)
         data = saved_id[1:]
 
         if typename == 'module':
@@ -576,40 +575,18 @@ def _load(f, map_location, pickle_module, **pickle_load_args):
     #     raise RuntimeError("Invalid protocol version: %s" % protocol_version)
 
     # _sys_info = pickle_module.load(f, **pickle_load_args)
-    import pickletools
-    a = f.tell()
-    print(pickletools.dis(f))
-    f.seek(a)
 
     unpickler = pickle_module.Unpickler(f, **pickle_load_args)
     unpickler.persistent_load = persistent_load
     result = unpickler.load()
 
-    print(result)
-
-    a = f.tell()
-    print(pickletools.dis(f))
-    f.seek(a)
-
     deserialized_storage_keys = pickle_module.load(f, **pickle_load_args)
     deserialized_storage_keys = deserialized_storage_keys[0]
-    print("4:", f.tell())
-
-    print("Keys")
-    print(deserialized_storage_keys)
-    print(deserialized_objects)
 
     offset = f.tell() if f_should_read_directly else None
-    print("Offset is ", offset)
     for key in deserialized_storage_keys:
         assert key in deserialized_objects
-        print("At", f.tell(), " ", f_should_read_directly)
-        print(deserialized_objects[key])
-        storage = deserialized_objects[key]
-        # storage._set_from_file(f, offset)
-        # deserialized_objects[key]._set_from_file(f, offset, f_should_read_directly)
-        storage._set_from_file(f, offset, f_should_read_directly)
-        print("WAS SET")
+        deserialized_objects[key]._set_from_file(f, offset, f_should_read_directly)
         offset = None
 
     return result

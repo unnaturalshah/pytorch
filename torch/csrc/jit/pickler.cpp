@@ -53,7 +53,6 @@ void Pickler::finish() {
       storage_keys.toGenericList()->elements().push_back(std::to_string(index));
       index++;
     }
-    std::cout << "Adding keys\n" << storage_keys << "\n";
     p.addIValue(storage_keys);
     p.finish();
     stack_.insert(
