@@ -60,7 +60,12 @@ void Pickler::finish() {
         stack_.end(), p.stack().data(), p.stack().data() + p.stack().size());
 
     for (auto tensor : literal_tensors_) {
-      uint64_t record_size = tensor.element_size() * tensor.storage().size();
+      // first dump size
+      auto numel = tensor.numel();
+      auto numel_ptr = reinterpret_cast<const char*>(&numel);
+      stack_.insert(stack_.end(), numel_ptr, numel_ptr + sizeof(numel));
+
+      uint64_t record_size = tensor.element_size() * tensor.numel();
       auto storage_ptr = reinterpret_cast<const char*>(tensor.storage().data());
       stack_.insert(stack_.end(), storage_ptr, storage_ptr + record_size);
     }
@@ -197,9 +202,15 @@ void Pickler::pushLiteralTensor(const IValue& ivalue) {
   // pushClass(PicklerClass::LITERAL_TENSOR);
   auto tensor = ivalue.toTensor();
 
+  // def _rebuild_tensor_v2(storage, storage_offset, size, stride, requires_grad, backward_hooks):
+
+
   pushGlobal("torch._utils\n_rebuild_tensor_v2\n");
   push<OpCode>(OpCode::MARK);
 
+  // Data for persistent_load
+  // A tuple unpacked like this:
+  //    typename, data_type, root_key, location, size, view_metadata = data
   push<OpCode>(OpCode::MARK);
   pushMemoizedString(std::string("storage"));
   // TODO: determine correct type
@@ -208,19 +219,48 @@ void Pickler::pushLiteralTensor(const IValue& ivalue) {
   pushMemoizedString(std::to_string(literal_tensors_.size()));
   // Tensor location
   pushMemoizedString(std::string("cpu"));
-  // dtype ID
-  pushInt(static_cast<int8_t>(tensor.scalar_type()));
+  // Storage size
+
+  // Probably wrong
+  int64_t storage_size = tensor.element_size() * tensor.storage().size();
+  pushInt(tensor.numel());
+  // pushInt(tensor.numel());
+  // pushInt(static_cast<int64_t>(literal_tensors_.size()));
+
   push<OpCode>(OpCode::NONE);
   push<OpCode>(OpCode::TUPLE);
   push<OpCode>(OpCode::BINPERSID);
 
-  pushInt(5);
-  push<OpCode>(OpCode::EMPTY_TUPLE);
-  push<OpCode>(OpCode::EMPTY_TUPLE);
+
+  // storage, storage_offset, size, stride, requires_grad, backward_hooks
+  pushInt(static_cast<int64_t>(0));
+
+  // size
+  // push<OpCode>(OpCode::EMPTY_TUPLE);
+  std::vector<IValue> size_ivalues;
+  for (auto size : tensor.sizes()) {
+    size_ivalues.push_back(size);
+  }
+  auto sizes = c10::ivalue::Tuple::create(size_ivalues);
+  addIValue(sizes);
+  // push<OpCode>(OpCode::EMPTY_TUPLE);
+
+  // stride
+  // push<OpCode>(OpCode::EMPTY_TUPLE);
+  std::vector<IValue> stride_ivalues;
+  for (auto stride : tensor.strides()) {
+    stride_ivalues.push_back(stride);
+  }
+  auto strides = c10::ivalue::Tuple::create(stride_ivalues);
+  addIValue(strides);
+
   addIValue(tensor.requires_grad());
   pushGlobal("collections\nOrderedDict\n");
+
+  // backward hooks
   push<OpCode>(OpCode::EMPTY_TUPLE);
   push<OpCode>(OpCode::REDUCE);
+
   push<OpCode>(OpCode::TUPLE);
   push<OpCode>(OpCode::REDUCE);
 

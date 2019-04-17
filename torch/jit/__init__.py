@@ -670,6 +670,7 @@ def trace(func,
                                      var_lookup_fn, _force_outplace)
 
     # Check the trace against new traces created from user-specified inputs
+    print("Checking")
     if check_trace:
         if check_inputs is not None:
             _check_trace(check_inputs, func, executor_options, module, check_tolerance, _force_outplace)
