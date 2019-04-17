@@ -289,20 +289,14 @@ def _save(obj, f, pickle_module, pickle_protocol):
         ),
     )
 
-    # pickle_module.dump(MAGIC_NUMBER, f, protocol=pickle_protocol)
-    # pickle_module.dump(PROTOCOL_VERSION, f, protocol=pickle_protocol)
-    # pickle_module.dump(sys_info, f, protocol=pickle_protocol)
+    pickle_module.dump(MAGIC_NUMBER, f, protocol=pickle_protocol)
+    pickle_module.dump(PROTOCOL_VERSION, f, protocol=pickle_protocol)
+    pickle_module.dump(sys_info, f, protocol=pickle_protocol)
 
     pickler = pickle_module.Pickler(f, protocol=pickle_protocol)
     pickler.persistent_id = persistent_id
-    print(obj)
     pickler.dump(obj)
-    print("KEYS")
     serialized_storage_keys = sorted(serialized_storages.keys())
-    print(serialized_storages)
-    for i in serialized_storage_keys:
-        print(type(i))
-    print("end")
     pickle_module.dump(serialized_storage_keys, f, protocol=pickle_protocol)
     f.flush()
     for key in serialized_storage_keys:
@@ -581,6 +575,7 @@ def _load(f, map_location, pickle_module, **pickle_load_args):
     result = unpickler.load()
 
     deserialized_storage_keys = pickle_module.load(f, **pickle_load_args)
+    # TODO: store right
     deserialized_storage_keys = deserialized_storage_keys[0]
 
     offset = f.tell() if f_should_read_directly else None
