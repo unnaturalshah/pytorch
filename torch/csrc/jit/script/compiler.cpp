@@ -2834,7 +2834,7 @@ void CompilationUnit::define(
       AT_ASSERT(resolver);
       to_ir(def, resolver, self, method);
     };
-    std::unique_ptr<Function> fn(
+    std::shared_ptr<Function> fn(
         new Function(name, is_optimized(), std::make_shared<Graph>(), creator));
     function_table[name] = fn.get();
     methods.push_back(fn.get());
