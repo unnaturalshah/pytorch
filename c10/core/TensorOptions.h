@@ -357,6 +357,9 @@ struct C10_API TensorOptions {
       case Layout::Strided:
         switch (device().type()) {
           case DeviceType::CPU:
+            if (isQIntType(typeMetaToScalarType(dtype()))) {
+              return QuantizedCPUTensorId();
+            }
             return CPUTensorId();
           case DeviceType::CUDA:
             return CUDATensorId();
